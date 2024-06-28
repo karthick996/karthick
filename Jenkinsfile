@@ -14,7 +14,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Run Gitleaks
+                        // Run Gitleaks to detect secrets
                         sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
@@ -23,11 +23,11 @@ pipeline {
                 }
             }
         }
-          
-    stages {
+        
         stage('Verify mongodump Installation') {
             steps {
                 script {
+                    // Check if mongodump is installed
                     sh 'mongodump --version'
                 }
             }
@@ -46,7 +46,7 @@ pipeline {
                     env.MONGO_USER = mongoCredJson.username
                     env.MONGO_PASS = mongoCredJson.password
 
-                    // Print retrieved credentials for debugging (Note: remove these lines in production)
+                    // Print retrieved credentials for debugging (remove in production)
                     echo "MongoDB User: ${env.MONGO_USER}"
                     echo "MongoDB Password: ${env.MONGO_PASS}"
                 }
@@ -103,4 +103,4 @@ pipeline {
             }
         }
     }
-
+}
