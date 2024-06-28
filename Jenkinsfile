@@ -7,6 +7,7 @@ pipeline {
         MONGO_SECRET_NAME = "mongo/creds"
         MONGO_HOST = "mdb.spanllc.com"
         MONGO_PORT = "27017"
+        GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
     }
     
     stages {
@@ -14,23 +15,30 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Run Gitleaks to detect secrets
-                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
+                        // Run Gitleaks to detect secrets and save report
+                        sh "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE}"
                         
-                        // Prompt user for confirmation to proceed
+                        // Read Gitleaks report to display in input step
+                        def gitleaksOutput = readFile(file: "${GITLEAKS_REPORT_FILE}").trim()
+
+                        // Prompt user for confirmation to proceed with Gitleaks findings
                         def userInput = input(
                             id: 'proceedToNextStage',
-                            message: 'Proceed to the next stage?',
-                            parameters: [choice(choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED')]
+                            message: 'Gitleaks found issues. Proceed to the next stage?',
+                            parameters: [
+                                [$class: 'TextParameterDefinition', defaultValue: gitleaksOutput, description: 'Gitleaks findings', name: 'GITLEAKS_OUTPUT'],
+                                [$class: 'ChoiceParameterDefinition', choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED']
+                            ]
                         )
                         
-                        if (userInput == 'No') {
+                        // If user chooses not to proceed, abort the pipeline
+                        if (userInput.PROCEED == 'No') {
                             currentBuild.result = 'ABORTED'
                             error('Pipeline aborted by user choice.')
                         }
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
-                        echo 'Gitleaks found issues!'
+                        echo 'Error running Gitleaks or displaying input.'
                     }
                 }
             }
@@ -45,6 +53,6 @@ pipeline {
             }
         }
 
-        // Other stages as per your requirements
+        // Add other stages as needed
     }
 }
