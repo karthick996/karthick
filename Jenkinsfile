@@ -9,11 +9,12 @@ pipeline {
         MONGO_PORT = "27017"
         GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
     }
-    
+
     stages {
         stage('Run Gitleaks') {
             steps {
                 script {
+                    def proceed = false
                     try {
                         // Run Gitleaks to detect secrets and save report
                         sh "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE}"
@@ -31,14 +32,19 @@ pipeline {
                             ]
                         )
                         
-                        // If user chooses not to proceed, abort the pipeline
-                        if (userInput.PROCEED == 'No') {
-                            currentBuild.result = 'ABORTED'
-                            error('Pipeline aborted by user choice.')
+                        // Set proceed variable based on user input
+                        if (userInput['PROCEED'] == 'Yes') {
+                            proceed = true
                         }
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Error running Gitleaks or displaying input.'
+                    }
+
+                    // Check the proceed variable before moving to the next stage
+                    if (!proceed) {
+                        currentBuild.result = 'ABORTED'
+                        error('Pipeline aborted by user choice.')
                     }
                 }
             }
