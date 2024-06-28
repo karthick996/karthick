@@ -15,19 +15,23 @@ pipeline {
             steps {
                 script {
                     def proceed = false
+                    def gitleaksOutput = ''
                     try {
-                        // Run Gitleaks to detect secrets and save report
-                        sh "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE}"
-                        
-                        // Read Gitleaks report to display in input step
-                        def gitleaksOutput = readFile(file: "${GITLEAKS_REPORT_FILE}").trim()
+                        // Run Gitleaks and capture the output
+                        gitleaksOutput = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE}", returnStdout: true).trim()
 
+                        // Format the output to be user-friendly
+                        def formattedOutput = """
+                            Gitleaks Scan Report:
+                            ${gitleaksOutput}
+                        """
+                        
                         // Prompt user for confirmation to proceed with Gitleaks findings
                         def userInput = input(
                             id: 'proceedToNextStage',
-                            message: 'Gitleaks found issues. Proceed to the next stage?',
+                            message: 'Gitleaks scan completed. Review the findings and decide whether to proceed.',
                             parameters: [
-                                [$class: 'TextParameterDefinition', defaultValue: gitleaksOutput, description: 'Gitleaks findings', name: 'GITLEAKS_OUTPUT'],
+                                [$class: 'TextParameterDefinition', defaultValue: formattedOutput, description: 'Gitleaks findings', name: 'GITLEAKS_OUTPUT'],
                                 [$class: 'ChoiceParameterDefinition', choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED']
                             ]
                         )
