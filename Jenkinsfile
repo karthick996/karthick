@@ -14,9 +14,7 @@ def envid
 def highenv
 
 pipeline {
-    agent {
-        label 'Build-Nodejs'
-    }
+    agent any
 
     environment {
         GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
