@@ -15,7 +15,7 @@ pipeline {
                 script {
                     try {
                         // Run Gitleaks
-                        sh 'gitleaks --path=. --report-format=json --report-path=gitleaks-report.json'
+                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Gitleaks found issues!'
