@@ -2,11 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-west-2"
-        S3_BUCKET = "mongobackup0123"
-        MONGO_SECRET_NAME = "mongo/creds"
-        MONGO_HOST = "mdb.spanllc.com"
-        MONGO_PORT = "27017"
+        TARGET_REPO_URL = "https://github.com/karthick996/test-demo.git" // The URL of the repository to scan
     }
 
     stages {
@@ -14,8 +10,14 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Run Gitleaks
-                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
+                        // Clone the target repository
+                        sh "git clone ${TARGET_REPO_URL} target-repo"
+
+                        // Change to the target repository directory
+                        dir('target-repo') {
+                            // Run Gitleaks
+                            sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
+                        }
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Gitleaks found issues!'
@@ -23,4 +25,6 @@ pipeline {
                 }
             }
         }
-        
+    }
+}
+
