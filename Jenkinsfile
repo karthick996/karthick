@@ -2,7 +2,12 @@ pipeline {
     agent any
 
     environment {
-        TARGET_REPO_URL = "https://github.com/karthick996/test-demo.git" // The URL of the repository to scan
+        AWS_REGION = "us-west-2"
+        S3_BUCKET = "mongobackup0123"
+        MONGO_SECRET_NAME = "mongo/creds"
+        MONGO_HOST = "mdb.spanllc.com"
+        MONGO_PORT = "27017"
+        TARGET_REPO_URL = "https://gitlab.com/karthick1910421/karthick.git" // The URL of the repository to scan
     }
 
     stages {
@@ -18,6 +23,9 @@ pipeline {
                             // Run Gitleaks
                             sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
                         }
+                        
+                        // Prompt for approval to proceed
+                        input message: 'Proceed to next stage?', ok: 'Proceed', parameters: [choice(choices: ['Proceed', 'Abort'], description: 'Proceed or Abort')]
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Gitleaks found issues!'
@@ -25,6 +33,18 @@ pipeline {
                 }
             }
         }
+        
+        stage('Next Stage') {
+            when {
+                expression {
+                    // This stage will run only if 'Proceed' was chosen in the input step
+                    return true
+                }
+            }
+            steps {
+                echo 'Continuing to next stage...'
+                // Add your next stage steps here
+            }
+        }
     }
 }
-
