@@ -23,9 +23,15 @@ pipeline {
                             // Run Gitleaks
                             sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
                         }
-                        
+
                         // Prompt for approval to proceed
-                        input message: 'Proceed to next stage?', ok: 'Proceed', parameters: [choice(choices: ['Proceed', 'Abort'], description: 'Proceed or Abort')]
+                        def userInput = input message: 'Proceed to next stage?', ok: 'Proceed', parameters: [choice(choices: ['Proceed', 'Abort'], description: 'Proceed or Abort')]
+
+                        // Check user input and handle accordingly
+                        if (userInput == 'Abort') {
+                            error 'Pipeline aborted by user'
+                        }
+
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Gitleaks found issues!'
@@ -33,7 +39,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Next Stage') {
             when {
                 expression {
