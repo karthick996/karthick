@@ -14,25 +14,8 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Clone the target repository using credentials
-                        withCredentials([usernamePassword(credentialsId: 'gitlab-creds', usernameVariable: 'GITLAB_USERNAME', passwordVariable: 'GITLAB_PASSWORD')]) {
-                            sh "git clone ${TARGET_REPO_URL} target-repo"
-                        }
-
-                        // Change to the target repository directory
-                        dir('target-repo') {
-                            // Run Gitleaks
-                            sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
-                        }
-
-                        // Prompt for approval to proceed
-                        def userInput = input message: 'Proceed to next stage?', ok: 'Proceed', parameters: [choice(choices: ['Proceed', 'Abort'], description: 'Proceed or Abort')]
-
-                        // Check user input and handle accordingly
-                        if (userInput == 'Abort') {
-                            error 'Pipeline aborted by user'
-                        }
-
+                        // Run Gitleaks
+                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Gitleaks found issues!'
@@ -40,7 +23,7 @@ pipeline {
                 }
             }
         }
-        
+          
     stages {
         stage('Verify mongodump Installation') {
             steps {
