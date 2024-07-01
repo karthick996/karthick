@@ -16,10 +16,9 @@ pipeline {
             steps {
                 script {
                     def proceed = false
-                    def gitleaksOutput = ''
                     try {
                         // Run Gitleaks and capture the output
-                        sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
+                        def status = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
 
                         // Read the Gitleaks output file
                         def outputFileContent = readFile('gitleaks-output.txt')
@@ -28,27 +27,34 @@ pipeline {
                         def reportContent = readFile(file: GITLEAKS_REPORT_FILE)
                         def parsedReport = readJSON text: reportContent
 
+                        // Extract detailed findings from the report
+                        def detailedFindings = parsedReport.collect { finding ->
+                            """
+                            **File:** ${finding.file}
+                            **Line:** ${finding.line}
+                            **Secret:** ${finding.secret}
+                            **Rule:** ${finding.rule}
+                            **Commit:** ${finding.commit}
+                            **Date:** ${finding.date}
+                            **Entropy:** ${finding.entropy}
+                            **Author:** ${finding.author}
+                            **Email:** ${finding.email}
+                            **Message:** ${finding.message}
+                            **Fingerprint:** ${finding.fingerprint}
+                            """
+                        }.join('\n\n')
+
                         // Format the output to be user-friendly
                         def formattedOutput = """
-                            Gitleaks Scan Report:
-                            ${outputFileContent}
+                        Gitleaks Scan Report:
+                        ${outputFileContent}
+
+                        Detailed Findings:
+                        ${detailedFindings}
                         """
 
                         // Send Slack notification with Gitleaks output
                         slackSend(channel: env.SLACK_CHANNEL, color: '#FFFF00', message: formattedOutput)
-
-                        // Extract detailed findings from the report
-                        def detailedFindings = ""
-                        parsedReport.each { finding ->
-                            detailedFindings += """
-                            File: ${finding.file}
-                            Line: ${finding.line}
-                            Secret: ${finding.secret}
-                            Rule: ${finding.rule}
-                            Commit: ${finding.commit}
-                            Date: ${finding.date}
-                            """
-                        }
 
                         // Prompt user for confirmation to proceed with Gitleaks findings
                         def userInput = input(
@@ -56,7 +62,6 @@ pipeline {
                             message: 'Gitleaks scan completed. Review the findings and decide whether to proceed.',
                             parameters: [
                                 [$class: 'TextParameterDefinition', defaultValue: formattedOutput, description: 'Gitleaks findings', name: 'GITLEAKS_OUTPUT'],
-                                [$class: 'TextParameterDefinition', defaultValue: detailedFindings, description: 'Detailed Findings', name: 'DETAILED_FINDINGS'],
                                 [$class: 'ChoiceParameterDefinition', choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED']
                             ]
                         )
