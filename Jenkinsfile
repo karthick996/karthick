@@ -1,23 +1,14 @@
-#!groovy
-import jenkins.model.* 
-import hudson.*
-import hudson.model.*
-import groovy.json.*
-import java.text.SimpleDateFormat
-
-def date = new Date()
-today = new SimpleDateFormat("ddMMyyyy")
-def COLOR_MAP = ['SUCCESS': '#00FF00', 'FAILURE': '#FF0000','UNSTABLE': '#FFFF00', 'ABORTED': '#800000']
-def approverId
-def slave
-def envid
-def highenv
-
 pipeline {
     agent any
 
     environment {
-        GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
+        AWS_REGION = "us-west-2"
+        S3_BUCKET = "mongobackup0123"
+        MONGO_SECRET_NAME = "mongo/creds"
+        MONGO_HOST = "mdb.spanllc.com"
+        MONGO_PORT = "27017"
+        SLACK_CHANNEL = "#eks-build-alerts" // Replace with your Slack channel
+        GITLEAKS_REPORT_FILE = "gitleaks-report.json"
     }
 
     stages {
@@ -28,7 +19,7 @@ pipeline {
                     def gitleaksOutput = ''
                     try {
                         // Run Gitleaks and capture the output
-                        def returnStatus = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
+                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json > gitleaks-output.txt 2>&1'
 
                         // Read the Gitleaks output file
                         def outputFileContent = readFile('gitleaks-output.txt')
@@ -38,6 +29,9 @@ pipeline {
                             Gitleaks Scan Report:
                             ${outputFileContent}
                         """
+
+                        // Send Slack notification with Gitleaks output
+                        slackSend(channel: env.SLACK_CHANNEL, color: '#FFFF00', message: formattedOutput)
 
                         // Prompt user for confirmation to proceed with Gitleaks findings
                         def userInput = input(
@@ -67,22 +61,13 @@ pipeline {
             }
         }
 
-        stage('MongoDump') {
-            steps {
-                script {
-                    catlskeyfile = "/home/ubuntu/MongoDB/Keyfiles/"
-                    mongodbbackup = "/opt/MongoDBBackup/"
-                    sh "mongodump --ssl --uri 'mongodb+srv://mdb.spanllc.com' --sslPEMKeyFile '${catlskeyfile}/tls.pem' --sslCAFile '${catlskeyfile}/ca.cert' --port 27017 --username=TaxBandits_User --password=Azw8yNV15FGvgzN2 --authenticationDatabase=admin --gzip --archive='${mongodbbackup}/sample.zip'"
-                }
+        stage('Next Stage') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
             }
-        }
-
-        stage('Login and push to AWS S3') {
             steps {
-                script {
-                    s3 = "s3://span-devops/MongoDB/sample.zip"
-                    sh "sudo aws s3 cp '${mongodbbackup}/sample.zip' '${s3}'"
-                }
+                echo 'Proceeding to the next stage...'
+                // Add your next stage steps here
             }
         }
     }
