@@ -23,9 +23,8 @@ pipeline {
                         // Read the Gitleaks output file
                         def outputFileContent = readFile('gitleaks-output.txt')
 
-                        // Read the JSON report file
-                        def reportContent = readFile(file: GITLEAKS_REPORT_FILE)
-                        def parsedReport = readJSON text: reportContent
+                        // Read the JSON report file using readJSON step
+                        def parsedReport = readJSON file: GITLEAKS_REPORT_FILE
 
                         // Extract detailed findings from the report
                         def detailedFindings = parsedReport.collect { finding ->
