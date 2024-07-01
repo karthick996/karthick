@@ -17,71 +17,66 @@ pipeline {
                 script {
                     def proceed = false
                     try {
+                        echo "Running Gitleaks..."
                         // Run Gitleaks and capture the detailed output
                         def gitleaksStatus = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
-                        
-                        // Capture the detailed output
-                        def gitleaksOutput = readFile('gitleaks-output.txt')
-                        echo "Gitleaks command output:\n${gitleaksOutput}"
 
                         // Check if Gitleaks command was successful
                         if (gitleaksStatus != 0) {
+                            def gitleaksOutput = readFile('gitleaks-output.txt')
                             slackSend(channel: env.SLACK_CHANNEL, color: '#FF0000', message: "Gitleaks scan failed. Output:\n${gitleaksOutput}")
                             error("Gitleaks scan failed. See output above.")
                         }
 
+                        echo "Reading Gitleaks report..."
                         // Read the detailed Gitleaks output file
                         def reportData = readJSON(file: GITLEAKS_REPORT_FILE)
                         def detailedReport = reportData.findAll { it.ruleSeverity == 'HIGH' || it.ruleSeverity == 'MEDIUM' }
+                        
+                        echo "Preparing detailed report for Slack..."
+                        // Prepare detailed report for Slack notification
+                        def formattedOutput = detailedReport.collect { leak ->
+                            """
+                            *File:* ${leak.file}
+                            *Line:* ${leak.lineNumber}
+                            *Secret:* ${leak.secret}
+                            *Type:* ${leak.ruleID}
+                            *Severity:* ${leak.ruleSeverity}
+                            """
+                        }.join("\n\n")
+                        
+                        // Send detailed report to Slack
+                        slackSend(channel: env.SLACK_CHANNEL, color: '#FF0000', message: "Gitleaks Detailed Scan Report:\n${formattedOutput}")
 
-                        // Check if there are any findings
-                        if (detailedReport.isEmpty()) {
-                            slackSend(channel: env.SLACK_CHANNEL, color: '#00FF00', message: "Gitleaks scan completed with no high or medium severity issues.")
-                            echo 'No high or medium severity findings.'
+                        echo "Preparing summary output for user input..."
+                        // Prepare user-friendly summary for user interaction
+                        def summaryOutput = detailedReport.collect { leak ->
+                            """
+                            File: ${leak.file}
+                            Type: ${leak.ruleID}
+                            Severity: ${leak.ruleSeverity}
+                            """
+                        }.join("\n\n")
+
+                        echo "Prompting user for confirmation to proceed..."
+                        // Prompt user for confirmation to proceed with Gitleaks findings
+                        def userInput = input(
+                            id: 'proceedToNextStage',
+                            message: 'Gitleaks scan completed. Review the summary and decide whether to proceed.',
+                            parameters: [
+                                [$class: 'TextParameterDefinition', defaultValue: summaryOutput, description: 'Gitleaks summary findings', name: 'GITLEAKS_SUMMARY'],
+                                [$class: 'ChoiceParameterDefinition', choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED']
+                            ]
+                        )
+
+                        // Set proceed variable based on user input
+                        if (userInput['PROCEED'] == 'Yes') {
                             proceed = true
-                        } else {
-                            // Prepare detailed report for Slack notification
-                            def formattedOutput = detailedReport.collect { leak ->
-                                """
-                                *File:* ${leak.file}
-                                *Line:* ${leak.lineNumber}
-                                *Secret:* ${leak.secret}
-                                *Type:* ${leak.ruleID}
-                                *Severity:* ${leak.ruleSeverity}
-                                """
-                            }.join("\n\n")
-                            
-                            // Send detailed report to Slack
-                            slackSend(channel: env.SLACK_CHANNEL, color: '#FF0000', message: "Gitleaks Detailed Scan Report:\n${formattedOutput}")
-
-                            // Prepare user-friendly summary for user interaction
-                            def summaryOutput = detailedReport.collect { leak ->
-                                """
-                                File: ${leak.file}
-                                Type: ${leak.ruleID}
-                                Severity: ${leak.ruleSeverity}
-                                """
-                            }.join("\n\n")
-
-                            // Prompt user for confirmation to proceed with Gitleaks findings
-                            def userInput = input(
-                                id: 'proceedToNextStage',
-                                message: 'Gitleaks scan completed. Review the summary and decide whether to proceed.',
-                                parameters: [
-                                    [$class: 'TextParameterDefinition', defaultValue: summaryOutput, description: 'Gitleaks summary findings', name: 'GITLEAKS_SUMMARY'],
-                                    [$class: 'ChoiceParameterDefinition', choices: ['Yes', 'No'], description: 'Proceed to next stage?', name: 'PROCEED']
-                                ]
-                            )
-
-                            // Set proceed variable based on user input
-                            if (userInput['PROCEED'] == 'Yes') {
-                                proceed = true
-                            }
                         }
                     } catch (Exception e) {
                         currentBuild.result = 'UNSTABLE'
-                        echo "Error running Gitleaks or displaying input: ${e.message}"
-                        error("Pipeline aborted due to an error: ${e.message}")
+                        echo "Caught exception: ${e}"
+                        echo 'Error running Gitleaks or displaying input.'
                     }
 
                     // Check the proceed variable before moving to the next stage
