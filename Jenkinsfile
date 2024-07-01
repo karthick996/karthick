@@ -10,7 +10,9 @@ pipeline {
         SLACK_CHANNEL = "#git-leaks-alerts"  // Replace with your Slack channel
         GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
     }
-    stage('Run Gitleaks') {
+
+    stages {
+        stage('Run Gitleaks') {
             steps {
                 script {
                     def proceed = false
