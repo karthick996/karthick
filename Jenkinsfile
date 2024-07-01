@@ -17,8 +17,15 @@ pipeline {
                 script {
                     def proceed = false
                     try {
-                        // Run Gitleaks and capture the output
-                        gitleaksOutput = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
+                        // Run Gitleaks and capture the detailed output
+                        def gitleaksStatus = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
+
+                        // Check if Gitleaks command was successful
+                        if (gitleaksStatus != 0) {
+                            def gitleaksOutput = readFile('gitleaks-output.txt')
+                            slackSend(channel: env.SLACK_CHANNEL, color: '#FF0000', message: "Gitleaks scan failed. Output:\n${gitleaksOutput}")
+                            error("Gitleaks scan failed. See output above.")
+                        }
 
                         // Read the detailed Gitleaks output file
                         def reportData = readJSON(file: 'gitleaks-report.json')
