@@ -7,8 +7,8 @@ pipeline {
         MONGO_SECRET_NAME = "mongo/creds"
         MONGO_HOST = "mdb.spanllc.com"
         MONGO_PORT = "27017"
-        SLACK_CHANNEL = "#eks-build-alerts" // Replace with your Slack channel
-        GITLEAKS_REPORT_FILE = "gitleaks-report.json"
+        SLACK_CHANNEL = "#eks-build-alerts" // Replace with your Slack channel        
+        GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
     }
 
     stages {
@@ -19,7 +19,7 @@ pipeline {
                     def gitleaksOutput = ''
                     try {
                         // Run Gitleaks and capture the output
-                        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json > gitleaks-output.txt 2>&1'
+                        gitleaksOutput = sh(script: "gitleaks detect --source . --report-format json --report-path ${GITLEAKS_REPORT_FILE} > gitleaks-output.txt 2>&1", returnStatus: true)
 
                         // Read the Gitleaks output file
                         def outputFileContent = readFile('gitleaks-output.txt')
@@ -29,7 +29,6 @@ pipeline {
                             Gitleaks Scan Report:
                             ${outputFileContent}
                         """
-
                         // Send Slack notification with Gitleaks output
                         slackSend(channel: env.SLACK_CHANNEL, color: '#FFFF00', message: formattedOutput)
 
@@ -61,14 +60,15 @@ pipeline {
             }
         }
 
-        stage('Next Stage') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+        stage('Verify mongodump Installation') {
             steps {
-                echo 'Proceeding to the next stage...'
-                // Add your next stage steps here
+                script {
+                    // Check if mongodump is installed
+                    sh 'mongodump --version'
+                }
             }
         }
+
+        // Add other stages as needed
     }
 }
