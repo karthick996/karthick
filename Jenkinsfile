@@ -28,17 +28,17 @@ pipeline {
                         }
 
                         // Read the detailed Gitleaks output file
-                        def reportData = readJSON(file: 'gitleaks-report.json')
-                        def detailedReport = reportData.findAll { it.severity == 'HIGH' || it.severity == 'MEDIUM' }
+                        def reportData = readJSON(file: GITLEAKS_REPORT_FILE)
+                        def detailedReport = reportData.findAll { it.ruleSeverity == 'HIGH' || it.ruleSeverity == 'MEDIUM' }
                         
                         // Prepare detailed report for Slack notification
                         def formattedOutput = detailedReport.collect { leak ->
                             """
                             *File:* ${leak.file}
-                            *Line:* ${leak.line}
+                            *Line:* ${leak.lineNumber}
                             *Secret:* ${leak.secret}
-                            *Type:* ${leak.type}
-                            *Severity:* ${leak.severity}
+                            *Type:* ${leak.ruleID}
+                            *Severity:* ${leak.ruleSeverity}
                             """
                         }.join("\n\n")
                         
@@ -49,8 +49,8 @@ pipeline {
                         def summaryOutput = detailedReport.collect { leak ->
                             """
                             File: ${leak.file}
-                            Type: ${leak.type}
-                            Severity: ${leak.severity}
+                            Type: ${leak.ruleID}
+                            Severity: ${leak.ruleSeverity}
                             """
                         }.join("\n\n")
 
