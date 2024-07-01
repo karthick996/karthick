@@ -7,7 +7,7 @@ pipeline {
         MONGO_SECRET_NAME = "mongo/creds"
         MONGO_HOST = "mdb.spanllc.com"
         MONGO_PORT = "27017"
-        SLACK_CHANNEL = "#eks-build-alerts" // Replace with your Slack channel        
+        SLACK_CHANNEL = "#git-leaks-alerts" // Replace with your Slack channel        
         GITLEAKS_REPORT_FILE = 'gitleaks-report.json'  // Define the file to store Gitleaks report
     }
 
