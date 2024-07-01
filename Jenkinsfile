@@ -26,30 +26,22 @@ pipeline {
                         // Read the JSON report file using readJSON step
                         def parsedReport = readJSON file: GITLEAKS_REPORT_FILE
 
-                        // Check if leaks were found
-                        def leaksFound = parsedReport.leaks?.size() ?: 0
-                        def detailedFindings = ''
-
-                        // Format detailed findings if leaks were found
-                        if (leaksFound > 0) {
-                            detailedFindings = parsedReport.leaks.collect { finding ->
-                                """
-                                **File:** ${finding.file}
-                                **Line:** ${finding.line}
-                                **Secret:** ${finding.secret}
-                                **Rule:** ${finding.rule}
-                                **Commit:** ${finding.commit}
-                                **Date:** ${finding.date}
-                                **Entropy:** ${finding.entropy}
-                                **Author:** ${finding.author}
-                                **Email:** ${finding.email}
-                                **Message:** ${finding.message}
-                                **Fingerprint:** ${finding.fingerprint}
-                                """
-                            }.join('\n\n')
-                        } else {
-                            detailedFindings = "No leaks found."
-                        }
+                        // Extract detailed findings from the report
+                        def detailedFindings = parsedReport.collect { finding ->
+                            """
+                            **File:** ${finding.file}
+                            **Line:** ${finding.line}
+                            **Secret:** ${finding.secret}
+                            **Rule:** ${finding.rule}
+                            **Commit:** ${finding.commit}
+                            **Date:** ${finding.date}
+                            **Entropy:** ${finding.entropy}
+                            **Author:** ${finding.author}
+                            **Email:** ${finding.email}
+                            **Message:** ${finding.message}
+                            **Fingerprint:** ${finding.fingerprint}
+                            """
+                        }.join('\n\n')
 
                         // Format the output to be user-friendly
                         def formattedOutput = """
@@ -61,7 +53,7 @@ pipeline {
                         """
 
                         // Send Slack notification with Gitleaks output
-                        slackSend(channel: env.SLACK_CHANNEL, color: leaksFound > 0 ? '#FF0000' : '#00FF00', message: formattedOutput)
+                        slackSend(channel: env.SLACK_CHANNEL, color: '#FFFF00', message: formattedOutput)
 
                         // Prompt user for confirmation to proceed with Gitleaks findings
                         def userInput = input(
